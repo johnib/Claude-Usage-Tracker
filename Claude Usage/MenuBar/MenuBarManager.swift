@@ -564,7 +564,7 @@ class MenuBarManager: NSObject, ObservableObject {
                     // the @Published profile properties set earlier in this method
                     popover.close()
                     stopMonitoringForOutsideClicks()
-                    popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+                    showPopoverOverFullscreen(popover, relativeTo: button)
                     currentPopoverButton = button
                     startMonitoringForOutsideClicks()
                 }
@@ -574,7 +574,7 @@ class MenuBarManager: NSObject, ObservableObject {
                 stopMonitoringForOutsideClicks()
                 // Update content view controller for current profile data
                 popover.contentViewController = createContentViewController()
-                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+                showPopoverOverFullscreen(popover, relativeTo: button)
                 currentPopoverButton = button
                 startMonitoringForOutsideClicks()
             }
@@ -600,7 +600,7 @@ class MenuBarManager: NSObject, ObservableObject {
         popover.behavior = .transient
         popover.animates = true
         popover.contentViewController = NSHostingController(rootView: PeakHoursPopoverView())
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        showPopoverOverFullscreen(popover, relativeTo: button)
         peakHoursPopover = popover
     }
 
@@ -644,6 +644,22 @@ class MenuBarManager: NSObject, ObservableObject {
         popover?.performClose(nil)
         stopMonitoringForOutsideClicks()
         currentPopoverButton = nil
+    }
+
+    /// Shows a popover so it surfaces even when another app is in native fullscreen.
+    ///
+    /// This is an accessory (LSUIElement) app, so it is never the frontmost
+    /// application. When another app occupies a fullscreen Space, AppKit will not
+    /// composite a background app's popover onto that Space, so the popover is
+    /// created but never appears. Activating the app first (same runloop turn,
+    /// before `show`) lets AppKit order the popover onto the visible Space — the
+    /// same reason the Settings/GitHub windows already work over fullscreen — and
+    /// opting the popover's host window into `.fullScreenAuxiliary` after `show`
+    /// ensures it can join a fullscreen Space (matching how Ice/Stats/Itsycal do it).
+    private func showPopoverOverFullscreen(_ popover: NSPopover, relativeTo button: NSStatusBarButton) {
+        NSApp.activate(ignoringOtherApps: true)
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.collectionBehavior.insert(.fullScreenAuxiliary)
     }
 
     private func startMonitoringForOutsideClicks() {
